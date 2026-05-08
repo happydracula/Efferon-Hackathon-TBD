@@ -28,6 +28,7 @@
 #     )
 #     return result['embedding']
 
+import math
 from openrouter import OpenRouter
 import os
 from dotenv import load_dotenv
@@ -58,10 +59,21 @@ def call_llm(prompt: str, get_as_json: bool = True):
     return response.choices[0].message.content
 
 
-def get_embedding(text: str):
+def get_embedding(text: str, model_name = "google/gemini-embedding-001"):
     # Use the specific embedding model
     result = client.embeddings.generate(
-       model="google/gemini-embedding-001",
+       model=model_name,
        input=text
     )
     return result.data[0].embedding
+
+
+# emb_1 = get_embedding("Lactate was an indicator of so and so")
+# emb_2 = get_embedding("Lactate levels in sepsis patients")
+# def get_cosine_similarity(v1, v2):
+#     dot_product = sum(x * y for x, y in zip(v1, v2))
+#     mag1 = math.sqrt(sum(x**2 for x in v1))
+#     mag2 = math.sqrt(sum(x**2 for x in v2))
+#     return dot_product / (mag1 * mag2) if (mag1 * mag2) > 0 else 0
+
+# print(get_cosine_similarity(emb_1, emb_2))

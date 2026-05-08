@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sepsis Study Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-10 text-center">
+            <h1 class="text-3xl font-bold text-blue-900">Efferon Sepsis Query System</h1>
+            <p class="text-gray-600 mt-2">Search clinical studies by population or predictor using vector embeddings</p>
+        </header>
+
+        <!-- Search Input -->
+        <div class="flex gap-2 mb-8">
+            <input type="text" id="queryInput" 
+                   placeholder="e.g., mortality in Karachi PICU using p-SOFA" 
+                   class="flex-1 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <button onclick="performSearch()" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-all">
+                Search
+            </button>
+        </div>
+
+        <!-- Results Container -->
+        <div id="resultsList" class="space-y-6">
+            <!-- Results will be injected here -->
+        </div>
+    </div>
+
+    <script>
+        async function performSearch() {
+            const query = document.getElementById('queryInput').value;
+            const resultsList = document.getElementById('resultsList');
+
+            if (!query) return;
+
+            resultsList.innerHTML = '<div class="text-center text-gray-500">Searching embeddings...</div>';
+
+            try {
+                const response = await fetch('http://127.0.0.1:5001/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query, limit: 3 })
+                });
+
+                const data = await response.json();
+                resultsList.innerHTML = '';
+
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(res => {
+                        const scorePercentage = (res.similarity_score * 100).toFixed(1);
+                        
+                        resultsList.innerHTML += `
+                            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500">
+                                <div class="flex justify-between items-start mb-4">
+                                    <h2 class="text-xl font-bold text-gray-800">${res.study}</h2>
+                                    <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">
+                                        Match: ${scorePercentage}%
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p class="font-semibold text-gray-700">Population:</p>
+                                        <p class="text-gray-600">${res.population}</p>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-700">Predictor:</p>
+                                        <p class="text-gray-600">${res.predictor}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 pt-4 border-t border-gray-100">
+                                    <p class="text-sm font-semibold text-gray-700">Performance:</p>
+                                    <p class="text-sm text-gray-600">${res.performance}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    resultsList.innerHTML = '<p class="text-center text-red-500">No matching studies found.</p>';
+                }
+            } catch (error) {
+                resultsList.innerHTML = `<p class="text-center text-red-500">Error: ${error.message}. Make sure Flask is running on port 5001.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
