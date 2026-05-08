@@ -21,7 +21,7 @@ This project is an end-to-end automated pipeline designed to transform unstructu
   
 ## Data Querying 
 
-### 1. Data Storage (PostgreSQL + pgvector)
+### 1. Data Storage 
 We store the extracted clinical information in a PostgreSQL database. Instead of just saving text, we store embeddings of specific columns to enable natural-language querying of evidence and conclusions.
 
 ### 2. Querying with Cosine Similarity
