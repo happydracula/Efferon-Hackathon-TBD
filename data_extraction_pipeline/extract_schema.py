@@ -9,9 +9,9 @@ SCHEMA = ["Study", "Population", "Sample Size", "Predictor", "Outcome", "Timing"
           "Effect Size", "Performance", "Notes", "Source"]
 
 def extract_relevant_context_for_findings(paragraph_dicts, search_terms, sim_threshold=0.6, overlap_threshold=1.0):
-    extracted_results = []
+    extracted_results = {"predictor_terms": search_terms, "findings":[]}
     embedding_cache = {}
-    control_text = "Statistical Evaluation of a variable in terms of its effect on sepsis patient outcomes with methodology or results."
+    control_text = "Quantitative results and statistical values including AUC, p-value, 95% CI, sensitivity, specificity, and mortality rates in sepsis patients."
     control_embedding = get_embedding(control_text)
     def get_cached_emb(text):
         if text not in embedding_cache:
@@ -79,7 +79,7 @@ def extract_relevant_context_for_findings(paragraph_dicts, search_terms, sim_thr
             final_embedding = get_embedding(final_text)
             cosine_similarity_with_control = get_cosine_similarity(final_embedding, control_embedding)
             if cosine_similarity_with_control > sim_threshold:
-                extracted_results.append({
+                extracted_results["findings"].append({
                     "title": title,
                     "relevant_text": final_text,
                     "cosine_similarity_with_control": cosine_similarity_with_control
@@ -129,8 +129,8 @@ def summarize_context_into_schema(relevant_context, article_title):
     Synthesizes extracted evidence blocks into the final research schema.
     """
     # 1. Combine all evidence into a single string with source headers
-    full_evidence = ""
-    for entry in relevant_context:
+    full_evidence = ", ".join(relevant_context["predictor_terms"]) + "\n"
+    for entry in relevant_context["findings"]:
         full_evidence += f"\n[Section: {entry['title']}]\n{entry['relevant_text']}\n"
 
     # 2. Call the LLM (using your preferred client, e.g., OpenAI or Anthropic)
@@ -180,9 +180,9 @@ def extract_schema(article_json, filename):
         print(f"Key Term: {key_term['canonical_name']}")
         print(f"Relevant Context: {json.dumps(relevant_context, indent=2)}")
         print("-" * 50)
-        relevant_context = [
+        relevant_context["findings"] = [
             {k: v for k, v in entry.items() if k != 'cosine_similarity_with_control'}
-            for entry in relevant_context
+            for entry in relevant_context["findings"]
         ]
         summarized_finding.update(summarize_context_into_schema(relevant_context, filename))
         print(f"Summarized Finding: {json.dumps(summarized_finding, indent=2)}")
