@@ -15,7 +15,10 @@ def extract_relevant_context_for_findings(paragraph_dicts, search_terms, sim_thr
     control_embedding = get_embedding(control_text)
     def get_cached_emb(text):
         if text not in embedding_cache:
-            embedding_cache[text] = get_embedding(text)
+            try:
+                embedding_cache[text] = get_embedding(text)
+            except Exception as e:
+                print(f"Error occurred while getting embedding for text: {text}. Error: {e}")
         return embedding_cache[text]
 
     for item in paragraph_dicts:
