@@ -9,19 +9,21 @@ SCHEMA = ["Study", "Population", "Sample Size", "Predictor", "Outcome", "Timing"
           "Effect Size", "Performance", "Notes", "Source"]
 
 def extract_relevant_context_for_findings(paragraph_dicts, search_terms, sim_threshold=0.6, overlap_threshold=1.0):
-    extracted_results = []
+    extracted_results = {"predictor_terms": search_terms, "findings":[]}
     embedding_cache = {}
-
+    control_text = "Quantitative results and statistical values including AUC, p-value, 95% CI, sensitivity, specificity, and mortality rates in sepsis patients."
+    control_embedding = get_embedding(control_text)
     def get_cached_emb(text):
         if text not in embedding_cache:
             embedding_cache[text] = get_embedding(text)
         return embedding_cache[text]
 
-    # Iterate through the list of dictionaries from your flattened JSON
     for item in paragraph_dicts:
         title = item['title']
         raw_text = item['text']
-        
+        if "figure" in title.lower() or "table" in title.lower():
+            continue
+
         # Split the text into sentences for granular analysis
         sentences = get_sentences_from_para(raw_text)
 
@@ -46,12 +48,10 @@ def extract_relevant_context_for_findings(paragraph_dicts, search_terms, sim_thr
                 
                 sim = get_cosine_similarity(avg_emb, candidate_emb)
                 
-                # Check lexical overlap
                 w_neighbor = get_meaningful_words(sentences[ptr+1])
                 w_candidate = get_meaningful_words(sentences[ptr])
                 overlap = len(w_neighbor & w_candidate) / max(len(w_neighbor | w_candidate), 1)
 
-                # Expansion condition
                 if overlap > overlap_threshold or sim > sim_threshold:
                     current_block_indices.insert(0, ptr)
                     ptr -= 1
@@ -61,16 +61,13 @@ def extract_relevant_context_for_findings(paragraph_dicts, search_terms, sim_thr
             # --- Expand Forwards ---
             ptr = seed_idx + 1
             while ptr < len(sentences):
-                # Using your new subject-checking logic
                 next_subjects = get_subject_of_sentence(sentences[ptr])
                 subjects_str = " ".join(next_subjects).lower()
                 
-                # Expand if the subject matches a search term OR is semantically similar
                 if any(term.lower() in subjects_str for term in search_terms):
                     current_block_indices.append(ptr)   
                     ptr += 1
                 else:
-                    # Optional: Add a small similarity check for forward expansion too
                     avg_emb = get_combined_embedding(sentences, current_block_indices)
                     if get_cosine_similarity(avg_emb, get_cached_emb(sentences[ptr])) > sim_threshold + 0.1:
                          current_block_indices.append(ptr)
@@ -78,17 +75,19 @@ def extract_relevant_context_for_findings(paragraph_dicts, search_terms, sim_thr
                     else:
                         break
 
-            # Create the final block and keep the title metadata
             final_text = " ".join([sentences[i] for i in current_block_indices])
-            extracted_results.append({
-                "title": title,
-                "relevant_text": final_text,
-                "search_terms_found": [t for t in search_terms if t.lower() in final_text.lower() or t.lower() in title.lower()]
-            })
+            final_embedding = get_embedding(final_text)
+            cosine_similarity_with_control = get_cosine_similarity(final_embedding, control_embedding)
+            if cosine_similarity_with_control > sim_threshold:
+                extracted_results["findings"].append({
+                    "title": title,
+                    "relevant_text": final_text,
+                    "cosine_similarity_with_control": cosine_similarity_with_control
+                })
             
             visited_indices.update(current_block_indices)
 
-    return extracted_results
+    return extracted_results #TODO: Add logic for ranking findings and return only top few rankings
 
 def flatten_document_structure(structured_data):
     """
@@ -130,8 +129,8 @@ def summarize_context_into_schema(relevant_context, article_title):
     Synthesizes extracted evidence blocks into the final research schema.
     """
     # 1. Combine all evidence into a single string with source headers
-    full_evidence = ""
-    for entry in relevant_context:
+    full_evidence = ", ".join(relevant_context["predictor_terms"]) + "\n"
+    for entry in relevant_context["findings"]:
         full_evidence += f"\n[Section: {entry['title']}]\n{entry['relevant_text']}\n"
 
     # 2. Call the LLM (using your preferred client, e.g., OpenAI or Anthropic)
@@ -147,15 +146,7 @@ def summarize_context_into_schema(relevant_context, article_title):
     """
     
     # Assuming call_llm() is your interface to the model
-    response_text = call_llm(prompt) 
-    
-    try:
-        # Parse the JSON response from the LLM
-        summarized = json.loads(response_text)
-    except:
-        # Fallback if LLM returns text instead of JSON
-        summarized = {key: "Extraction Failed" for key in SCHEMA}
-    return summarized
+    return call_llm(prompt) 
 
 
 
@@ -172,7 +163,7 @@ def get_population_summary(abstract_text: str):
     
     Summary:
     """
-    response = call_llm(prompt)
+    response = call_llm(prompt, get_as_json=False)
     return response
 
 
@@ -185,11 +176,16 @@ def extract_schema(article_json, filename):
         summarized_finding = {"Study":filename}
         terms = [key_term["canonical_name"]] + key_term["synonyms"]
         relevant_context = extract_relevant_context_for_findings(inverted_document, terms)
-        print(f"Key Term: {key_term['canonical_term']}")
-        print(f"Relevant Context: {relevant_context}")
+    
+        print(f"Key Term: {key_term['canonical_name']}")
+        print(f"Relevant Context: {json.dumps(relevant_context, indent=2)}")
         print("-" * 50)
-        summarized_finding.update(summarize_context_into_schema(relevant_context))
-        print(f"Summarized Finding: {summarized_finding}")
+        relevant_context["findings"] = [
+            {k: v for k, v in entry.items() if k != 'cosine_similarity_with_control'}
+            for entry in relevant_context["findings"]
+        ]
+        summarized_finding.update(summarize_context_into_schema(relevant_context, filename))
+        print(f"Summarized Finding: {json.dumps(summarized_finding, indent=2)}")
         if not summarized_finding["Population"]:
             summarized_finding["Population"] = population_summary
         schema_objects.append(summarized_finding)
