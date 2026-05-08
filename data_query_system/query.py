@@ -17,32 +17,20 @@ def query_studies(query_text, limit=3):
 
 
     search_query = """
-        SELECT 
-            study_name, 
-            population, 
-            predictor, 
-            performance,
-            LEAST(
+       SELECT 
+            id, study_name, population, sample_size, predictor, 
+            outcome, timing, method, performance, notes, source,
+            1 - (LEAST(
                 population_embedding <=> %s::vector, 
                 predictor_embedding <=> %s::vector
-            ) AS min_distance
+            )) AS similarity
         FROM study_metadata
-        ORDER BY min_distance ASC
+        ORDER BY similarity DESC
         LIMIT %s;
     """
 
     cur.execute(search_query, (query_embedding, query_embedding, limit))
-    results = cur.fetchall()
-
-    # 3. Print the results nicely
-    print(f"\n--- Top Results for: '{query_text}' ---")
-    for row in results:
-        name, pop, pred, perf, dist = row
-        similarity = 1 - dist
-        print(f"Study: {name}")
-        print(f"Match Similarity: {similarity:.4f}")
-        print(f"Population: {pop[:100]}...")
-        print(f"Predictor: {pred[:100]}...")
-        print(f"Performance: {perf}")
-        print("-" * 30)
+    columns = [desc[0] for desc in cur.description]
+    results = [dict(zip(columns, row)) for row in cur.fetchall()]
+    return results
 
