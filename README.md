@@ -18,3 +18,11 @@ This project is an end-to-end automated pipeline designed to transform unstructu
 *   **Structured Summarization:** Relevant context is passed to a Large Language Model (LLM) to transform dense prose into a concise, tabular summary.
 *   **Vectorized Knowledge Base:** All structured findings are stored in a **Vector Database**.
 *   **Real-time RAG:** A Retrieval-Augmented Generation interface allows users to ask complex natural language questions and receive answers grounded strictly in the validated research data.
+  
+## Data Querying 
+
+### 1. Data Storage (PostgreSQL + pgvector)
+We store the extracted clinical information in a PostgreSQL database. Instead of just saving text, we store embeddings of specific columns to enable natural-language querying of evidence and conclusions.
+
+### 2. Querying with Cosine Similarity
+When a user asks a question, we perform a cosine similarity of the query vector against the database columns to extract relevant documents ranked by their relevance.
