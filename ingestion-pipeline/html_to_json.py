@@ -80,10 +80,10 @@ def parse_html_to_hierarchy(html_content):
     return structured_data
 
 # --- Usage remains the same ---
-files = [f for f in os.listdir("./data/articles_html/") if f.endswith('.html')]
+files = [f for f in os.listdir("Efferon-Hackathon-TBD/data/articles_html/") if f.endswith('.html')]
 for file in tqdm(files, desc="Parsing HTML"):
-    with open(f"./data/articles_html/{file}", "r", encoding="utf-8") as f:
+    with open(f"Efferon-Hackathon-TBD/data/articles_html/{file}", "r", encoding="utf-8") as f:
         html_data = f.read()
         result_json = parse_html_to_hierarchy(html_data)
-        with open(f"./data/articles_json/{file}_extracted.json", "w", encoding="utf-8") as f:
+        with open(f"Efferon-Hackathon-TBD/data/articles_json/{file}_extracted.json", "w", encoding="utf-8") as f:
             json.dump(result_json, f, indent=4)
