@@ -10,6 +10,8 @@ CONSTRAINTS:
 2. If multiple values exist (e.g., multiple Performance metrics), list them all in the string.
 3. Be specific: For 'Timing', look for things like 'at admission', 'within 24h', etc.
 4. For 'Effect Size', include 95% Confidence Intervals (CI) and p-values if available.
+5. Be as short and specific as possible, restrict values to a few words unless absolutely necessary.
+6. Focus ONLY on this predictor ignore all others.
 
 JSON SCHEMA DEFINITIONS:
 - Study: Short name (e.g., Baloch et al. 2022).
