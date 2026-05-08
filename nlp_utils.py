@@ -1,5 +1,6 @@
 import math
 from llm_invoker import get_embedding
+import spacy
 
 nlp = spacy.load("en_core_web_sm")
 def get_cosine_similarity(v1, v2):
