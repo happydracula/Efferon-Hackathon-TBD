@@ -3,14 +3,14 @@ from tqdm import tqdm
 from docling.document_converter import DocumentConverter
 import json
 # 1. Create the output directory if it doesn't exist
-output_dir = "../data/articles_html/"
+output_dir = "Efferon-Hackathon-TBD/data/articles_html/"
 os.makedirs(output_dir, exist_ok=True)
 
 # 2. Initialize the converter ONCE outside the loop (saves RAM and Time)
 converter = DocumentConverter()
 
 # 3. Get list of files
-input_dir = './data/articles/'
+input_dir = 'Efferon-Hackathon-TBD/data/articles/'
 files = [f for f in os.listdir(input_dir) if f.endswith('.pdf')]
 
 for file in tqdm(files, desc="Parsing PDFs"):
