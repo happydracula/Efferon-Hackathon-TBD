@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sepsis Atlas – Evidence Search</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2d3148;
+    --accent: #5b8dee;
+    --accent2: #7c6be8;
+    --text: #e2e6f0;
+    --muted: #8892a4;
+    --success: #3ecf8e;
+    --tag-bg: #1e2a3a;
+    --tag-text: #7eb8f7;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+  .logo span { color: var(--text); }
+  .subtitle { font-size: 0.78rem; color: var(--muted); margin-left: auto; }
+
+  /* ── Main layout ─────────────────────────────────────── */
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── Left panel: chat ────────────────────────────────── */
+  .chat-panel {
+    width: 420px;
+    min-width: 320px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+  }
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .msg {
+    max-width: 90%;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 3px;
+  }
+  .msg.bot {
+    align-self: flex-start;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-bottom-left-radius: 3px;
+  }
+  .msg.loading { color: var(--muted); font-style: italic; }
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .chat-input-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 10px 14px;
+    font-size: 0.875rem;
+    outline: none;
+  }
+  .chat-input-row input:focus { border-color: var(--accent); }
+  .chat-input-row button {
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    color: #fff;
+    padding: 10px 18px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: opacity .15s;
+  }
+  .chat-input-row button:hover { opacity: .85; }
+  .chat-input-row button:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Right panel: results table ──────────────────────── */
+  .results-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+  }
+  .results-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .results-header h2 { font-size: 1rem; font-weight: 600; }
+  .badge {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* evidence cards */
+  .evidence-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .ev-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    font-size: 0.83rem;
+    line-height: 1.5;
+    transition: border-color .15s;
+  }
+  .ev-card:hover { border-color: var(--accent); }
+  .ev-card .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    gap: 10px;
+  }
+  .ev-card .paper-id {
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .ev-card .sim-badge {
+    font-size: 0.7rem;
+    color: var(--success);
+    white-space: nowrap;
+  }
+  .ev-card .population {
+    color: var(--text);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .ev-card .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  .ev-card .label { color: var(--muted); min-width: 80px; }
+  .ev-card .value { color: var(--text); flex: 1; }
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 0.72rem;
+  }
+  .affected-yes { color: var(--success); font-weight: 600; }
+  .affected-no  { color: #f87171; font-weight: 600; }
+
+  /* empty state */
+  .empty {
+    text-align: center;
+    margin-top: 80px;
+    color: var(--muted);
+  }
+  .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty p { font-size: 0.875rem; }
+
+  /* ingest section */
+  .ingest-section {
+    margin-top: 20px;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .ingest-section h3 { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+  .ingest-row { display: flex; gap: 6px; }
+  .ingest-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 7px 10px;
+    font-size: 0.8rem;
+    outline: none;
+  }
+  .ingest-row input:focus { border-color: var(--accent2); }
+  .ingest-row button {
+    background: var(--accent2);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Sepsis<span>Atlas</span></div>
+  <div class="subtitle">AI-powered clinical evidence search</div>
+</header>
+
+<main>
+  <!-- ── Chat panel ── -->
+  <div class="chat-panel">
+    <div class="messages" id="messages">
+      <div class="msg bot">
+        👋 Hi! Ask me a clinical question and I'll search the evidence base.<br><br>
+        Example: <em>"What is the relationship between lactate and 28-day mortality in septic shock?"</em>
+      </div>
+    </div>
+
+    <div class="chat-input-row">
+      <input id="queryInput" type="text" placeholder="Ask a clinical question…" />
+      <button id="sendBtn" onclick="sendQuery()">Search</button>
+    </div>
+
+    <div class="ingest-section">
+      <h3>Ingest a paper</h3>
+      <div class="ingest-row">
+        <input id="ingestPaperId" type="text" placeholder="Paper ID (e.g. doi or filename)" />
+        <button onclick="ingestSample()">Ingest Sample</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Results panel ── -->
+  <div class="results-panel">
+    <div id="resultsHeader" class="results-header" style="display:none">
+      <h2>Evidence Results</h2>
+      <span class="badge" id="resultCount">0</span>
+    </div>
+    <div id="resultsContainer">
+      <div class="empty">
+        <div class="icon">🔬</div>
+        <p>Results will appear here after you search.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API_BASE = "http://localhost:8000";
+
+function addMsg(text, role) {
+  const div = document.createElement("div");
+  div.className = `msg ${role}`;
+  div.innerHTML = text;
+  document.getElementById("messages").appendChild(div);
+  div.scrollIntoView({ behavior: "smooth" });
+  return div;
+}
+
+async function sendQuery() {
+  const input = document.getElementById("queryInput");
+  const q = input.value.trim();
+  if (!q) return;
+
+  const btn = document.getElementById("sendBtn");
+  btn.disabled = true;
+  input.value = "";
+  addMsg(q, "user");
+  const loader = addMsg("Searching evidence base…", "bot loading");
+
+  try {
+    const resp = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}&top_k=15`);
+    const data = await resp.json();
+    loader.remove();
+
+    if (!data.results || data.results.length === 0) {
+      addMsg("No relevant evidence found for that query.", "bot");
+      renderResults([]);
+      return;
+    }
+
+    addMsg(`Found <strong>${data.results.length}</strong> evidence record(s). See the panel →`, "bot");
+    renderResults(data.results);
+  } catch (e) {
+    loader.remove();
+    addMsg(`⚠️ Error: ${e.message}. Is the API running on ${API_BASE}?`, "bot");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderResults(results) {
+  const header = document.getElementById("resultsHeader");
+  const container = document.getElementById("resultsContainer");
+  document.getElementById("resultCount").textContent = results.length;
+  header.style.display = results.length ? "flex" : "none";
+
+  if (!results.length) {
+    container.innerHTML = `<div class="empty"><div class="icon">🔍</div><p>No results found.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="evidence-grid">${results.map(evCard).join("")}</div>`;
+}
+
+function evCard(ev) {
+  const preds = (ev.predictors || []).map(p => `<span class="tag">${p}</span>`).join(" ");
+  const sim = ev.similarity !== undefined
+    ? `<span class="sim-badge">similarity ${(ev.similarity * 100).toFixed(1)}%</span>`
+    : "";
+  const affected = ev.affected_or_not
+    ? `<span class="affected-yes">✓ Associated</span>`
+    : `<span class="affected-no">✗ Not associated</span>`;
+
+  return `
+  <div class="ev-card">
+    <div class="card-top">
+      <span class="paper-id">${ev.paper_id || "unknown"}</span>
+      ${sim}
+    </div>
+    <div class="population">${ev.population_type || "—"}</div>
+    <div class="row"><span class="label">Predictors</span><span class="value">${preds || "—"}</span></div>
+    <div class="row"><span class="label">Outcome</span><span class="value">${ev.outcome || "—"}</span></div>
+    <div class="row"><span class="label">Effect size</span><span class="value">${ev.effect_size || "—"}</span></div>
+    <div class="row"><span class="label">Performance</span><span class="value">${ev.performance || "—"}</span></div>
+    <div class="row"><span class="label">Sample size</span><span class="value">${ev.sample_size || "—"}</span></div>
+    <div class="row"><span class="label">Method</span><span class="value">${ev.method || "—"}</span></div>
+    <div class="row"><span class="label">Association</span><span class="value">${affected}</span></div>
+    ${ev.notes ? `<div class="row"><span class="label">Notes</span><span class="value" style="color:var(--muted)">${ev.notes}</span></div>` : ""}
+  </div>`;
+}
+
+async function ingestSample() {
+  const paperId = document.getElementById("ingestPaperId").value.trim() || "sample-paper-001";
+  addMsg(`Ingesting paper: <em>${paperId}</em>…`, "bot loading");
+
+  const sampleJson = {
+    paper_id: paperId,
+    abstract: {
+      Objective: "To assess diagnostic accuracy of p-SOFA and PRISM III for mortality prediction in critically ill children.",
+      Results: "p-SOFA AUC=0.81, PRISM III AUC=0.75. At p-SOFA>2: sensitivity 93.87%, specificity 38.21%. 30-day mortality 57%."
+    },
+    "Materials And Methods": "Cross-validation study, 286 PICU children, February–July 2021."
+  };
+
+  try {
+    const resp = await fetch(`${API_BASE}/ingest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paper_id: paperId, title: "p-SOFA vs PRISM III in PICU", paper_json: sampleJson })
+    });
+    const data = await resp.json();
+    const last = document.querySelector(".msg.loading");
+    if (last) last.classList.remove("loading");
+    if (resp.ok) {
+      addMsg(`✅ Ingested <strong>${data.findings_count}</strong> finding(s) / <strong>${data.evidence_count}</strong> evidence row(s).`, "bot");
+    } else {
+      addMsg(`⚠️ Ingest failed: ${JSON.stringify(data)}`, "bot");
+    }
+  } catch (e) {
+    addMsg(`⚠️ ${e.message}`, "bot");
+  }
+}
+
+document.getElementById("queryInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") sendQuery();
+});
+</script>
+
+</body>
+</html>
